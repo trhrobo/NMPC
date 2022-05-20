@@ -23,6 +23,13 @@ classdef NMPC_two_wheel < handle
         save_u;
         goal_pos;
         X;
+        X_cal;
+        param_pos=1.0;
+        param_pos_theta=1.0
+        param_log=30.0;
+        param_u_v=1;
+        param_u_omega=1;
+        param_dummy=1;
     end
     methods
         function obj = NMPC_two_wheel(X_, goal_pos_)
@@ -45,6 +52,27 @@ classdef NMPC_two_wheel < handle
             plt::pause(0.01);
         end
         %}
+        function figGraph(obj)
+            r=6;
+            xc=0;
+            yc=0;
+
+            theta=linspace(0,2*pi);
+            x=r*cos(theta)+xc;
+            y=r*sin(theta)+yc;
+
+            plot(x,y)
+
+            X_=(reshape(obj.X_cal, obj.x_size, []))';
+            %obj.figgraph = animatedline(obj.save_x(:,1), obj.save_x(:,2));
+            figgraph1 = animatedline(X_(:,1), X_(:, 2));
+            axis([-30, 50, -30, 50]);
+            figgraph1.Color='green';
+            figgraph2 = animatedline(obj.save_x(:, 1), obj.save_x(:, 2));
+            axis([-30, 50, -30, 50]);
+            figgraph2.Color='black';
+            drawnow
+        end
         function updateState(obj, U_, dt_)
             %状態Xを更新する
             %disp("dt_")
@@ -68,16 +96,22 @@ classdef NMPC_two_wheel < handle
             %disp("model_F_end")
         end
         function rphirx = rphirx(obj, X_)
-            rphirx=(X_-obj.goal_pos)';
+            x_=X_(1, 1);
+            y_=X_(2, 1);
+            theta_=X_(3, 1);
+            g_x_=obj.goal_pos(1,1);
+            g_y_=obj.goal_pos(2,1);
+            g_theta_=obj.goal_pos(3,1);
+            rphirx=[obj.param_pos*(x_-g_x_)-obj.param_log*2*x_/(x_*x_+y_*y_-36), obj.param_pos*(y_-g_y_)-obj.param_log*2*y_/(x_*x_+y_*y_-36), obj.param_pos*(theta_-g_theta_)];
         end
-        function rhrx = rHrx(obj, x_, u_, lamda_)
-            x1_=x_(1, 1);
-            x2_=x_(2, 1);
-            x3_=x_(3, 1);
+        function rhrx = rHrx(obj, X_, u_, lamda_)
+            x_=X_(1, 1);
+            y_=X_(2, 1);
+            theta_=X_(3, 1);
             u1_=u_(1, 1);
             lamda1_=lamda_(1, 1);
             lamda2_=lamda_(2, 1);
-            rhrx=[x1_-obj.goal_pos(1, 1), x2_-obj.goal_pos(2, 1), x3_-obj.goal_pos(3, 1)-lamda1_*u1_*sin(x3_)+lamda2_*u1_*cos(x3_)];
+            rhrx=[obj.param_pos*(x_-obj.goal_pos(1, 1))-obj.param_log*2*x_/(x_*x_+y_*y_-36), obj.param_pos*(y_-obj.goal_pos(2, 1))-obj.param_log*2*y_/(x_*x_+y_*y_-36), obj.param_pos*(theta_-obj.goal_pos(3, 1))-lamda1_*u1_*sin(theta_)+lamda2_*u1_*cos(theta_)];
         end
         function cgmres = CGMRES(obj, time_, goal_pos_)
             obj.dt=obj.tf*(1-exp(-obj.alpha*time_))/obj.N_step;
@@ -162,6 +196,7 @@ classdef NMPC_two_wheel < handle
                 X_((obj.x_size*i)+1:obj.x_size*i+obj.x_size, 1)=prev_X_+obj.calModel(prev_X_, U_((obj.u_size*(i-1)+1):obj.u_size*(i-1)+obj.u_size, 1))*obj.dt;
                 prev_X_=X_((obj.x_size*i)+1:obj.x_size*i+obj.x_size, 1);
             end
+            obj.X_cal=X_;
             %4
             %lamda_(lamda*)を求める
             %lamdaN*=(rphi/rx)^T(xN*,t+T)を計算する

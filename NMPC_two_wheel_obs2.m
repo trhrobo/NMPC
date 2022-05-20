@@ -25,11 +25,12 @@ classdef NMPC_two_wheel_obs2 < handle
         goal_pos;
         X;
         X_cal;
-        param_pos=0.5;
+        param_pos=1.0;
         param_pos_theta=0.1
-        param_log=15.0;
-        param_u_v=6;
-        param_u_omega=8;
+        param_log=0.0;
+        param_u_v=4;
+        param_u_omega=1;
+        param_dummy=0.01;
     end
     methods
         function obj = NMPC_two_wheel_obs2(X_, goal_pos_)
@@ -216,7 +217,7 @@ classdef NMPC_two_wheel_obs2 < handle
                 x_3=X_((i*obj.x_size+3), 1);
                 F((i*obj.f_size)+1, 1)=obj.param_u_v*u_1+lam_1*cos(x_3)+lam_2*sin(x_3)+2*mu_*u_1;
                 F((i*obj.f_size)+2, 1)=obj.param_u_omega*u_2+lam_3;
-                F((i*obj.f_size)+3, 1)=dummy_+2*mu_*dummy_;
+                F((i*obj.f_size)+3, 1)=obj.param_dummy*dummy_+2*mu_*obj.param_dummy*dummy_;
                 F((i*obj.f_size)+4, 1)=u_1*u_1+dummy_*dummy_-100;
             end
         end
