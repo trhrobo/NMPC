@@ -30,6 +30,7 @@ classdef NMPC_two_wheel < handle
         param_u_v=1;
         param_u_omega=1;
         param_dummy=1;
+        frames
     end
     methods
         function obj = NMPC_two_wheel(X_, goal_pos_)
@@ -41,6 +42,7 @@ classdef NMPC_two_wheel < handle
                 obj.U((obj.u_size*i)+1, 1)=1.0;
                 obj.U((obj.u_size*i)+2, 1)=0.5;
             end
+            %obj.frames = struct('cdata', [], 'colormap', []);
         end
         %{
         function figGraph(time_)
@@ -72,6 +74,15 @@ classdef NMPC_two_wheel < handle
             axis([-30, 50, -30, 50]);
             figgraph2.Color='black';
             drawnow
+            obj.frames = [obj.frames; struct('cdata', [], 'colormap', [])];
+            obj.frames(end, 1) = getframe(gcf);
+        end
+        function saveVideo(obj)
+            %mp4で出力する
+            video = VideoWriter('nmpc.mp4', 'MPEG-4');
+            open(video);
+            writeVideo(video, obj.frames);
+            close(video);
         end
         function updateState(obj, U_, dt_)
             %状態Xを更新する
