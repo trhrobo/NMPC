@@ -25,11 +25,11 @@ classdef NMPC_two_wheel_obs2 < handle
         goal_pos;
         X;
         X_cal;
-        param_pos=1.5;
-        param_pos_theta=0.01
-        param_log=30.0;
-        param_u_v=1.5;
-        param_u_omega=1.8;
+        param_pos=0.5;
+        param_pos_theta=0.1
+        param_log=15.0;
+        param_u_v=6;
+        param_u_omega=8;
     end
     methods
         function obj = NMPC_two_wheel_obs2(X_, goal_pos_)
@@ -38,7 +38,7 @@ classdef NMPC_two_wheel_obs2 < handle
             obj.X=X_;
             obj.goal_pos=goal_pos_;
             for i = 0:obj.N_step-1
-                obj.U((obj.U_size*i)+1, 1)=3.0;
+                obj.U((obj.U_size*i)+1, 1)=4.0;
                 obj.U((obj.U_size*i)+2, 1)=0.04;
                 obj.U((obj.U_size*i)+3, 1)=100-3^2;
                 obj.U((obj.U_size*i)+4, 1)=0.011;
@@ -94,7 +94,7 @@ classdef NMPC_two_wheel_obs2 < handle
             g_x_=obj.goal_pos(1,1);
             g_y_=obj.goal_pos(2,1);
             g_theta_=obj.goal_pos(3,1);
-            rphirx=[obj.param_pos*(x_-g_x_)-obj.param_log*2*x_/(x_*x_+y_*y_-16), obj.param_pos*(y_-g_y_)-obj.param_log*2*y_/(x_*x_+y_*y_-16), obj.param_pos_theta*(theta_-g_theta_)];
+            rphirx=[obj.param_pos*(x_-g_x_)-obj.param_log*2*x_/(x_*x_+y_*y_-16), obj.param_pos*(y_-g_y_)-obj.param_log*2*y_/(x_*x_+y_*y_-16), 0];
         end
         function rhrx = rHrx(obj, X_, u_, lamda_)
             x_=X_(1, 1);
@@ -106,7 +106,7 @@ classdef NMPC_two_wheel_obs2 < handle
             g_x_=obj.goal_pos(1,1);
             g_y_=obj.goal_pos(2,1);
             g_theta_=obj.goal_pos(3,1);
-            rhrx=[obj.param_pos*(x_-g_x_)-obj.param_log*2*x_/(x_*x_+y_*y_-16), obj.param_pos*(y_-g_y_)-obj.param_log+2*y_/(x_*x_+y_*y_-16), obj.param_pos_theta*(theta_-g_theta_)-obj.param_u_v*lamda1_*u_v_*sin(theta_)+obj.param_u_v*lamda2_*u_v_*cos(theta_)];
+            rhrx=[obj.param_pos*(x_-g_x_)-obj.param_log*2*x_/(x_*x_+y_*y_-16), obj.param_pos*(y_-g_y_)-obj.param_log*2*y_/(x_*x_+y_*y_-16),-obj.param_u_v*lamda1_*u_v_*sin(theta_)+obj.param_u_v*lamda2_*u_v_*cos(theta_)];
         end
         function cgmres = CGMRES(obj, time_, goal_pos_)
             obj.dt=obj.tf*(1-exp(-obj.alpha*time_))/obj.N_step;
