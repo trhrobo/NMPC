@@ -3,7 +3,7 @@ classdef NMPC_two_wheel_obs2 < handle
         %予測ステップ
         N_step=10;
         alpha=0.5;
-        tf=3.0;
+        tf=1.0;
         zeta=100.0;
         ht=0.01;
         %x={x, y, theta}    
@@ -11,12 +11,15 @@ classdef NMPC_two_wheel_obs2 < handle
         %各時刻における制御入力
         %・入力が2つ
         %u={u1, u2, dummy}
-        u_size=3;
+%         u_size=3;
+        u_size=2;
         %U={u1, u2, dummy, mu}
-        U_size=4;
+%         U_size=4;
+        U_size=2;
         mu;
         %f={rHru(x_size+dummy+mu)}
-        f_size=4;
+%         f_size=4;
+        f_size=2;
         max_iteration;
         U;
         dt=0;
@@ -26,11 +29,11 @@ classdef NMPC_two_wheel_obs2 < handle
         X;
         X_cal;
         param_pos=1.0;
-        param_pos_theta=0.1
-        param_log=0.0;
-        param_u_v=4;
-        param_u_omega=1;
-        param_dummy=0.01;
+        param_pos_theta=1.0
+        param_log=30.0;
+        param_u_v=1;
+        param_u_omega=0;
+        param_dummy=0;
     end
     methods
         function obj = NMPC_two_wheel_obs2(X_, goal_pos_)
@@ -39,10 +42,10 @@ classdef NMPC_two_wheel_obs2 < handle
             obj.X=X_;
             obj.goal_pos=goal_pos_;
             for i = 0:obj.N_step-1
-                obj.U((obj.U_size*i)+1, 1)=4.0;
-                obj.U((obj.U_size*i)+2, 1)=0.04;
-                obj.U((obj.U_size*i)+3, 1)=100-3^2;
-                obj.U((obj.U_size*i)+4, 1)=0.011;
+                obj.U((obj.U_size*i)+1, 1)=1.0;
+                obj.U((obj.U_size*i)+2, 1)=0.5;
+%                 obj.U((obj.U_size*i)+3, 1)=100-3^2;
+%                 obj.U((obj.U_size*i)+4, 1)=0.011;
             end
         end
         function figGraph(obj)
@@ -95,7 +98,8 @@ classdef NMPC_two_wheel_obs2 < handle
             g_x_=obj.goal_pos(1,1);
             g_y_=obj.goal_pos(2,1);
             g_theta_=obj.goal_pos(3,1);
-            rphirx=[obj.param_pos*(x_-g_x_)-obj.param_log*2*x_/(x_*x_+y_*y_-16), obj.param_pos*(y_-g_y_)-obj.param_log*2*y_/(x_*x_+y_*y_-16), 0];
+            %rphirx=[obj.param_pos*(x_-g_x_)-obj.param_log*2*x_/(x_*x_+y_*y_-16), obj.param_pos*(y_-g_y_)-obj.param_log*2*y_/(x_*x_+y_*y_-16), 0];
+            rphirx=[obj.param_pos*(x_-g_x_)-obj.param_log*2*x_/(x_*x_+y_*y_-36), obj.param_pos*(y_-g_y_)-obj.param_log*2*y_/(x_*x_+y_*y_-36), obj.param_pos*(theta_-g_theta_)];
         end
         function rhrx = rHrx(obj, X_, u_, lamda_)
             x_=X_(1, 1);
@@ -107,7 +111,8 @@ classdef NMPC_two_wheel_obs2 < handle
             g_x_=obj.goal_pos(1,1);
             g_y_=obj.goal_pos(2,1);
             g_theta_=obj.goal_pos(3,1);
-            rhrx=[obj.param_pos*(x_-g_x_)-obj.param_log*2*x_/(x_*x_+y_*y_-16), obj.param_pos*(y_-g_y_)-obj.param_log*2*y_/(x_*x_+y_*y_-16),-obj.param_u_v*lamda1_*u_v_*sin(theta_)+obj.param_u_v*lamda2_*u_v_*cos(theta_)];
+            %rhrx=[obj.param_pos*(x_-g_x_)-obj.param_log*2*x_/(x_*x_+y_*y_-16), obj.param_pos*(y_-g_y_)-obj.param_log*2*y_/(x_*x_+y_*y_-16),-obj.param_u_v*lamda1_*u_v_*sin(theta_)+obj.param_u_v*lamda2_*u_v_*cos(theta_)];
+            rhrx=[obj.param_pos*(x_-g_x_)-obj.param_log*2*x_/(x_*x_+y_*y_-16), obj.param_pos*(y_-g_y_)-obj.param_log*2*y_/(x_*x_+y_*y_-16),obj.param_pos*(theta_-g_theta_)-obj.param_u_v*lamda1_*u_v_*sin(theta_)+obj.param_u_v*lamda2_*u_v_*cos(theta_)];
         end
         function cgmres = CGMRES(obj, time_, goal_pos_)
             obj.dt=obj.tf*(1-exp(-obj.alpha*time_))/obj.N_step;
@@ -212,13 +217,18 @@ classdef NMPC_two_wheel_obs2 < handle
                 lam_3=Lamda_((i*obj.x_size)+3, 1);
                 u_1=U_((i*obj.U_size+1), 1);
                 u_2=U_((i*obj.U_size+2), 1);
-                dummy_=U_((i*obj.U_size+3), 1);
-                mu_=U_((i*obj.U_size+4), 1);
+%                 dummy_=U_((i*obj.U_size+3), 1);
+%                 mu_=U_((i*obj.U_size+4), 1);
                 x_3=X_((i*obj.x_size+3), 1);
-                F((i*obj.f_size)+1, 1)=obj.param_u_v*u_1+lam_1*cos(x_3)+lam_2*sin(x_3)+2*mu_*u_1;
+%                 F((i*obj.f_size)+1, 1)=obj.param_u_v*u_1+lam_1*cos(x_3)+lam_2*sin(x_3)+2*mu_*u_1;
+%                 F((i*obj.f_size)+2, 1)=obj.param_u_omega*u_2+lam_3;
+%                 F((i*obj.f_size)+3, 1)=obj.param_dummy*dummy_+2*mu_*obj.param_dummy*dummy_;
+%                 F((i*obj.f_size)+4, 1)=u_1*u_1+dummy_*dummy_-100;
+%                 F((i*obj.f_size)+1, 1)=obj.param_u_v*u_1+lam_1*cos(x_3)+lam_2*sin(x_3)+2*mu_*u_1;
+                F((i*obj.f_size)+1, 1)=obj.param_u_v*u_1+lam_1*cos(x_3)+lam_2*sin(x_3);
                 F((i*obj.f_size)+2, 1)=obj.param_u_omega*u_2+lam_3;
-                F((i*obj.f_size)+3, 1)=obj.param_dummy*dummy_+2*mu_*obj.param_dummy*dummy_;
-                F((i*obj.f_size)+4, 1)=u_1*u_1+dummy_*dummy_-100;
+%                 F((i*obj.f_size)+3, 1)=obj.param_dummy*dummy_+2*mu_*obj.param_dummy*dummy_;
+%                 F((i*obj.f_size)+4, 1)=u_1*u_1+dummy_*dummy_-100;
             end
         end
         function Av = calAv(obj, V_)

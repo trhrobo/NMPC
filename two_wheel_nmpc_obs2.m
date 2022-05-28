@@ -4,9 +4,9 @@ dt=0.01;
 iteration_time=30;
 iteration_num=iteration_time/dt;
 %現在の状態
-goal_pos=[50; -10; 0];
+goal_pos=[20; 20; 0];
 %x={x1, x2}
-init_X=[-30; -30; 0.25];
+init_X=[-10; -10; 0.25];
 nmpc = NMPC_two_wheel_obs2(init_X, goal_pos);
 %X(0)を測定する(初期値を代入する)
 for i = 1:iteration_num-1

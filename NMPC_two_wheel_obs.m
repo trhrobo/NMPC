@@ -1,21 +1,21 @@
 classdef NMPC_two_wheel_obs < handle
     properties 
         %予測ステップ
-        N_step=60;
-        %0.5
+        N_step=10;
         alpha=0.5;
-        %3
-        tf=4.0;
+        tf=1.0;
         zeta=100.0;
         ht=0.01;
         %x={x, y, theta}    
         x_size=3; 
         %各時刻における制御入力
         %・入力が2つ
-        %u={u1, u2}
-        u_size=2;
-        %f={rHru(x_size)}
-        f_size=2;
+        %u={u1, u2, dummy}
+        u_size=3;
+        %U={u_size+mu}
+        U_size=4;
+        %f={rHru(x_size+dummy+mu)}
+        f_size=4;
         max_iteration;
         U;
         dt=0;
@@ -23,33 +23,57 @@ classdef NMPC_two_wheel_obs < handle
         save_u;
         goal_pos;
         X;
-        field;
-        obs_pos;
         X_cal;
+        param_pos=0.5;
+        param_pos_theta=1.0
+        param_log=0.5;
+        param_u_v=1;
+        param_u_omega=0.1;
+        param_dummy=0.5;
+        frames
     end
     methods
-        function obj = NMPC_two_wheel_obs(X_, goal_pos_, field_, obs_pos_)
-            obj.max_iteration = obj.u_size*obj.N_step;
+        function obj = NMPC_two_wheel_obs(X_, goal_pos_)
+            obj.max_iteration = obj.U_size*obj.N_step;
             obj.U=zeros(obj.max_iteration, 1);
             obj.X=X_;
             obj.goal_pos=goal_pos_;
-            obj.field=field_;
-            obj.obs_pos = obs_pos_;
             for i = 0:obj.N_step-1
-                obj.U((obj.u_size*i)+1, 1)=1.0;
-                obj.U((obj.u_size*i)+2, 1)=0.5;
+                obj.U((obj.U_size*i)+1, 1)=1.0;
+                obj.U((obj.U_size*i)+2, 1)=0.5;
+                obj.U((obj.U_size*i)+3, 1)=100-1.0^2;
+                obj.U((obj.U_size*i)+4, 1)=0.011;
             end
         end
         function figGraph(obj)
+            r=6;
+            xc=0;
+            yc=0;
+
+            theta=linspace(0,2*pi);
+            x=r*cos(theta)+xc;
+            y=r*sin(theta)+yc;
+
+            plot(x,y)
+
             X_=(reshape(obj.X_cal, obj.x_size, []))';
             %obj.figgraph = animatedline(obj.save_x(:,1), obj.save_x(:,2));
             figgraph1 = animatedline(X_(:,1), X_(:, 2));
-            axis([-10, 50, -10, 50]);
+            axis([-30, 50, -30, 50]);
             figgraph1.Color='green';
             figgraph2 = animatedline(obj.save_x(:, 1), obj.save_x(:, 2));
-            axis([-10, 50, -10, 50]);
+            axis([-30, 50, -30, 50]);
             figgraph2.Color='black';
             drawnow
+            obj.frames = [obj.frames; struct('cdata', [], 'colormap', [])];
+            obj.frames(end, 1) = getframe(gcf);
+        end
+        function saveVideo(obj)
+            %mp4で出力する
+            video = VideoWriter('nmpc.mp4', 'MPEG-4');
+            open(video);
+            writeVideo(video, obj.frames);
+            close(video);
         end
         function updateState(obj, U_, dt_)
             %状態Xを更新する
@@ -74,35 +98,22 @@ classdef NMPC_two_wheel_obs < handle
             %disp("model_F_end")
         end
         function rphirx = rphirx(obj, X_)
-            rphirx=(X_-obj.goal_pos)';
+            x_=X_(1, 1);
+            y_=X_(2, 1);
+            theta_=X_(3, 1);
+            g_x_=obj.goal_pos(1,1);
+            g_y_=obj.goal_pos(2,1);
+            g_theta_=obj.goal_pos(3,1);
+            rphirx=[obj.param_pos*(x_-g_x_)-obj.param_log*2*x_/(x_*x_+y_*y_-36), obj.param_pos*(y_-g_y_)-obj.param_log*2*y_/(x_*x_+y_*y_-36), obj.param_pos*(theta_-g_theta_)];
         end
-        function rhrx = rHrx(obj, x_, u_, lamda_)
-            x1_=x_(1, 1);
-            x2_=x_(2, 1);
-            x3_=x_(3, 1);
+        function rhrx = rHrx(obj, X_, u_, lamda_)
+            x_=X_(1, 1);
+            y_=X_(2, 1);
+            theta_=X_(3, 1);
             u1_=u_(1, 1);
             lamda1_=lamda_(1, 1);
             lamda2_=lamda_(2, 1);
-            x_=round(x1_);
-            y_=round(x2_);
-            if x_<1
-                x_=1;
-            end
-            if y_<1
-                y_=1;
-            end
-            %disp([x_ y_])
-            dis=0;
-            if (7 < x_ && x_ < 13)
-                if(7 < y_ && y_ < 13)
-                    dis=1000/norm(obj.obs_pos-[x1_ x2_]);
-                end
-            end
-            if dis < 5
-                dis = 0;
-            end
-            disp(dis)
-            rhrx=[x1_-obj.goal_pos(1, 1)+dis, x2_-obj.goal_pos(2, 1)+dis, x3_-obj.goal_pos(3, 1)-lamda1_*u1_*sin(x3_)+lamda2_*u1_*cos(x3_)];
+            rhrx=[obj.param_pos*(x_-obj.goal_pos(1, 1))-obj.param_log*2*x_/(x_*x_+y_*y_-36), obj.param_pos*(y_-obj.goal_pos(2, 1))-obj.param_log*2*y_/(x_*x_+y_*y_-36), obj.param_pos*(theta_-obj.goal_pos(3, 1))-obj.param_u_v*lamda1_*u1_*sin(theta_)+obj.param_u_v*lamda2_*u1_*cos(theta_)];
         end
         function cgmres = CGMRES(obj, time_, goal_pos_)
             obj.dt=obj.tf*(1-exp(-obj.alpha*time_))/obj.N_step;
@@ -129,11 +140,11 @@ classdef NMPC_two_wheel_obs < handle
             Rm=zeros(obj.max_iteration, obj.max_iteration);
             c=zeros(obj.max_iteration, 1);
             s=zeros(obj.max_iteration, 1);
-            temp_sigma=zeros(obj.u_size*obj.N_step, 1);
-            tempAv=zeros(obj.u_size*obj.N_step, obj.max_iteration+1);
-            tempcalAv=zeros(obj.u_size*obj.N_step, 1);
+            temp_sigma=zeros(obj.U_size*obj.N_step, 1);
+            tempAv=zeros(obj.U_size*obj.N_step, obj.max_iteration+1);
+            tempcalAv=zeros(obj.U_size*obj.N_step, 1);
             for i = 1:obj.max_iteration
-                temp_sigma=zeros(obj.u_size*obj.N_step, 1);
+                temp_sigma=zeros(obj.U_size*obj.N_step, 1);
                 tempcalAv=obj.calAv(gmres_V(:, i));
                 for k = 1:i+1
                     tempAv(:, k)=tempcalAv;
@@ -169,7 +180,7 @@ classdef NMPC_two_wheel_obs < handle
             gmres_Xm=gmres_X0+gmres_Vm*gmres_Ym;
             dU=gmres_Xm;
             obj.U=obj.U+dU*obj.ht;
-            cgmres = obj.U(1:obj.u_size, 1);
+            cgmres = obj.U(1:obj.U_size, 1);
         end      
         function F = calF(obj, U_, x_)
             F=zeros(obj.f_size*obj.N_step, 1);
@@ -205,35 +216,27 @@ classdef NMPC_two_wheel_obs < handle
                 lam_1=Lamda_((i*obj.x_size)+1, 1);
                 lam_2=Lamda_((i*obj.x_size)+2, 1);
                 lam_3=Lamda_((i*obj.x_size)+3, 1);
-                u_1=U_((i*obj.u_size+1), 1);
-                u_2=U_((i*obj.u_size+2), 1);
+                u_1=U_((i*obj.U_size+1), 1);
+                u_2=U_((i*obj.U_size+2), 1);
+                dummy=U_((i*obj.U_size+3), 1);
+                mu=U_((i*obj.U_size+4), 1);
                 x_3=X_((i*obj.x_size+3), 1);
-                F((i*obj.f_size)+1, 1)=u_1+lam_1*cos(x_3)+lam_2*sin(x_3);
-                F((i*obj.f_size)+2, 1)=u_2+lam_3;
+                F((i*obj.f_size)+1, 1)=obj.param_u_v*u_1+lam_1*cos(x_3)+lam_2*sin(x_3);
+                F((i*obj.f_size)+2, 1)=obj.param_u_omega*u_2+lam_3;
+                F((i*obj.f_size)+3, 1)=-0.01+2*mu*dummy;
+                F((i*obj.f_size)+4, 1)=u_1*u_1+dummy*dummy-100;
             end
         end
         function Av = calAv(obj, V_)
-            U0= obj.U(1:obj.u_size,1);
+            U0= obj.U(1:obj.U_size,1);
             Av=(obj.calF(obj.U+(V_*obj.ht), obj.X+obj.calModel(obj.X, U0)*obj.ht)-obj.calF(obj.U, obj.X+obj.calModel(obj.X, U0)*obj.ht))/obj.ht;
         end
         function R0 = calR0(obj)
             %U'(0)=U0を使用する
             dX=obj.calModel(obj.X, obj.U(1:obj.u_size,1))*obj.ht;
-            %{
-            disp("dX")
-            disp(dX)
-            disp("dX_end")
-            disp("U")
-            disp(obj.U)
-            disp("U_end")
-            disp("obj_F")
-            disp(obj.calF(obj.U, obj.X))
-            disp("obj_F_end")
-            disp("obj")
-            disp((obj.calF(obj.U, obj.X+dX)-obj.calF(obj.U, obj.X))/obj.ht-(obj.calF(obj.U+obj.U*obj.ht, obj.X+dX)-obj.calF(obj.U, obj.X+dX))/obj.ht)
-            disp("obj_end")
-            %}
             R0=-1*obj.zeta*obj.calF(obj.U, obj.X)-(obj.calF(obj.U, obj.X+dX)-obj.calF(obj.U, obj.X))/obj.ht-(obj.calF(obj.U+obj.U*obj.ht, obj.X+dX)-obj.calF(obj.U, obj.X+dX))/obj.ht;
         end
     end
 end      
+
+      

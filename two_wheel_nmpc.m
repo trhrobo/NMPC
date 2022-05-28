@@ -1,7 +1,7 @@
 goal_error = 1.0e-2;
 %[x y theta]
 dt=0.01;
-iteration_time=8;
+iteration_time=6;
 iteration_num=iteration_time/dt;
 %現在の状態
 goal_pos=[20; 20; 0];
